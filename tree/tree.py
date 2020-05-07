@@ -26,7 +26,9 @@ class Tree:
     """
     树的基类
     """
-    def __init__(self):
+    def __init__(self, root: Node):
+        assert isinstance(root, Node)
+        self._root = root
         pass
 
     @abc.abstractmethod
