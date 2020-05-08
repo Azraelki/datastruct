@@ -26,36 +26,39 @@ class Tree:
     """
     树的基类
     """
-    def __init__(self, root: Node):
-        assert isinstance(root, Node)
+    def __init__(self, root: int):
+        assert isinstance(root, int)
         self._root = root
         pass
 
     @abc.abstractmethod
-    def insert(self, node: Node):
+    def insert(self, value: int):
         """
-        插入一个节点
-        :param node: 节点对象
+        插入一个值
+        :param value: 值
         :return: int值
         """
+        assert isinstance(value, int)
         pass
 
     @abc.abstractmethod
-    def search(self, value):
+    def search(self, value:int):
         """
         查询一个节点
         :param value:值
-        :return: Node对象
+        :return: 值
         """
+        assert isinstance(value, int)
         pass
 
     @abc.abstractmethod
-    def delete(self, value):
+    def delete(self, value:int):
         """
         查询一个节点
         :param value:值
-        :return: Node对象
+        :return: 值
         """
+        assert isinstance(value, int)
         pass
 
     def pre_order(self):
