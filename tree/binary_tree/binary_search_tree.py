@@ -83,7 +83,7 @@ class BinaryTree(Tree):
                 else:
                     is_left = False
                     current = current.right
-        pass
+        return None
 
     def find_right_last_node(self):
         pass
