@@ -16,6 +16,8 @@ class Node:
         self.value = value
         self.prev = None
         self.next = None
+        self.left = None
+        self.right = None
 
     def __str__(self):
         return self.value
@@ -29,17 +31,15 @@ class IntNode(Node):
         next:后继节点
     """
     def __init__(self, value: int):
-        self.value = value
-        self.prev = None
-        self.next = None
+        super(IntNode, self).__init__(value)
 
 
 class Tree:
     """
     树的基类
     """
-    def __init__(self, root):
-        self._root = root
+    def __init__(self):
+        self._root = Node()
         pass
 
     def insert(self, value):
