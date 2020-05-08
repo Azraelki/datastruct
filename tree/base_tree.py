@@ -42,32 +42,28 @@ class Tree:
         self._root = root
         pass
 
-    @abc.abstractmethod
     def insert(self, value):
         """
         插入一个值
         :param value: 值
-        :return: value
         """
-        pass
+        self.__insert(value)
 
-    @abc.abstractmethod
     def search(self, value):
         """
         查询一个节点
         :param value:值
-        :return: value
+        :return: Node对象
         """
-        pass
+        return self.__search(value)
 
-    @abc.abstractmethod
     def delete(self, value):
         """
         查询一个节点
         :param value:值
-        :return: value
+        :return: Node对象
         """
-        pass
+        return self.__delete(value)
 
     def pre_order(self):
         """
@@ -87,5 +83,32 @@ class Tree:
         """
         后续遍历
         :return: Node对象列表
+        """
+        pass
+
+    @abc.abstractmethod
+    def __insert(self, value):
+        """
+        插入一个值
+        :param value: 值
+        :return: value
+        """
+        pass
+
+    @abc.abstractmethod
+    def __search(self, value):
+        """
+        查询一个节点
+        :param value:值
+        :return: value
+        """
+        pass
+
+    @abc.abstractmethod
+    def __delete(self, value):
+        """
+        查询一个节点
+        :param value:值
+        :return: value
         """
         pass
