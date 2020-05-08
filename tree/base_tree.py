@@ -8,18 +8,30 @@ class Node:
         prev:前驱节点
         next:后继节点
     """
-    def __init__(self, value: int):
+    def __init__(self, value):
         """
         创建节点
         :param value:
         """
-        assert isinstance(value, int)
         self.value = value
         self.prev = None
         self.next = None
 
     def __str__(self):
         return self.value
+
+
+class IntNode(Node):
+    """
+    int类型节点对象
+        value:值
+        prev:前驱节点
+        next:后继节点
+    """
+    def __init__(self, value: int):
+        self.value = value
+        self.prev = None
+        self.next = None
 
 
 class Tree:
