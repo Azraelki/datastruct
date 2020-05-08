@@ -74,7 +74,7 @@ class BinaryTree(Tree):
                         prev.right = current.left
                     elif current.right:
                         prev.right = current.right
-                return
+                return current
             else:
                 prev = current
                 if current.value > value:
