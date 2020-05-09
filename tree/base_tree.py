@@ -19,8 +19,6 @@ class Node:
         self.left = None
         self.right = None
 
-    def __str__(self):
-        return self.value
 
 
 class IntNode(Node):
@@ -34,6 +32,9 @@ class IntNode(Node):
         super(IntNode, self).__init__(value)
 
     def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
         return str(self.value)
 
 
@@ -122,7 +123,7 @@ class Tree:
     def _mid_order(self, node, result):
         if node:
             self._mid_order(node.left, result)
-            result.append(node.value)
+            result.append(node)
             self._mid_order(node.right, result)
         return result
 

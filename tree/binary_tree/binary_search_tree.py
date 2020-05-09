@@ -2,6 +2,9 @@ from tree.base_tree import Tree, IntNode
 
 
 class BinaryTree(Tree):
+    """
+    二叉搜索树
+    """
     def __init__(self):
         self._root = IntNode(None)
 
