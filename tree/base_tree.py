@@ -33,6 +33,9 @@ class IntNode(Node):
     def __init__(self, value: int):
         super(IntNode, self).__init__(value)
 
+    def __str__(self):
+        return str(self.value)
+
 
 class Tree:
     """
@@ -47,7 +50,7 @@ class Tree:
         插入一个值
         :param value: 值
         """
-        self.__insert(value)
+        self._insert(value)
 
     def search(self, value):
         """
@@ -55,7 +58,7 @@ class Tree:
         :param value:值
         :return: Node对象
         """
-        return self.__search(value)
+        return self._search(value)
 
     def delete(self, value):
         """
@@ -63,7 +66,7 @@ class Tree:
         :param value:值
         :return: Node对象
         """
-        return self.__delete(value)
+        return self._delete(value)
 
     def pre_order(self):
         """
@@ -77,7 +80,10 @@ class Tree:
         中序遍历
         :return: Node对象列表
         """
-        pass
+        result = []
+        current = self._root.next
+        return self._mid_order(current, result)
+
 
     def follow_order(self):
         """
@@ -87,7 +93,7 @@ class Tree:
         pass
 
     @abc.abstractmethod
-    def __insert(self, value):
+    def _insert(self, value):
         """
         插入一个值
         :param value: 值
@@ -96,7 +102,7 @@ class Tree:
         pass
 
     @abc.abstractmethod
-    def __search(self, value):
+    def _search(self, value):
         """
         查询一个节点
         :param value:值
@@ -105,10 +111,39 @@ class Tree:
         pass
 
     @abc.abstractmethod
-    def __delete(self, value):
+    def _delete(self, value):
         """
         查询一个节点
         :param value:值
         :return: value
         """
         pass
+
+    def _mid_order(self, node, result):
+        if node:
+            self._mid_order(node.left, result)
+            result.append(node.value)
+            self._mid_order(node.right, result)
+        return result
+
+    def find_right_last_node(self, node):
+        """
+        寻找节点的最右子节点
+        :param node:
+        :return:
+        """
+        assert isinstance(node, IntNode)
+        while node.right:
+            node = node.right
+        return node
+
+    def find_left_last_node(self, node):
+        """
+        寻找节点的最左子节点
+        :param node:
+        :return:
+        """
+        assert isinstance(node, IntNode)
+        while node.left:
+            node = node.left
+        return node
