@@ -60,7 +60,8 @@ class BinaryTree(Tree):
             if current.value == value:
                 if is_left:
                     if current.left and current.right:
-                        pass
+                        self.find_right_last_node(current.left).right = current.right
+                        prev.left = current.left
                     elif current.left:
                         prev.left = current.left
                     elif current.right:
@@ -69,11 +70,14 @@ class BinaryTree(Tree):
                         prev.left = None
                 else:
                     if current.left and current.right:
-                        pass
+                        self.find_right_last_node(current.left).right = current.right
+                        prev.right = current.left
                     elif current.left:
                         prev.right = current.left
                     elif current.right:
                         prev.right = current.right
+                current.left = None
+                current.right = None
                 return current
             else:
                 prev = current
@@ -85,5 +89,6 @@ class BinaryTree(Tree):
                     current = current.right
         return None
 
-    def find_right_last_node(self):
+    def find_right_last_node(self, node):
+
         pass
