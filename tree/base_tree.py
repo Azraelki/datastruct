@@ -43,7 +43,7 @@ class Tree:
     树的基类
     """
     def __init__(self):
-        self._root = Node()
+        self._root = None
         pass
 
     def insert(self, value):
@@ -82,8 +82,7 @@ class Tree:
         :return: Node对象列表
         """
         result = []
-        current = self._root.next
-        return self._mid_order(current, result)
+        return self._mid_order(self._root, result)
 
 
     def follow_order(self):
@@ -129,22 +128,55 @@ class Tree:
 
     def find_right_last_node(self, node):
         """
-        寻找节点的最右子节点
+        寻找节点的前驱节点
         :param node:
         :return:
         """
-        assert isinstance(node, IntNode)
+        assert isinstance(node, Node)
+        node = node.left
         while node.right:
             node = node.right
         return node
 
     def find_left_last_node(self, node):
         """
-        寻找节点的最左子节点
+        寻找节点的后继节点
         :param node:
         :return:
         """
-        assert isinstance(node, IntNode)
+        assert isinstance(node, Node)
+        node = node.right
         while node.left:
             node = node.left
         return node
+
+    def left_rotate(self, node):
+        """
+        左旋
+        :param node: 不平衡节点
+        """
+        assert isinstance(node, Node)
+
+    def remove_prev_node(self, node):
+        """
+        将当前节点的前驱节点和其父节点断开
+        :param node:
+        :return:
+        """
+        assert isinstance(node, Node)
+        current = node.left
+        parent = None
+        while current.right:
+            parent = current
+            current = current.right
+        # 当前驱节点不是传入节点的左节点时，将前驱节点的左子树作为父节点的右子树
+        if current != node.left:
+            parent.right = current.left
+
+
+
+
+
+
+
+

@@ -1,7 +1,7 @@
 from tree.base_tree import Tree, IntNode
 
 
-class BinaryTree(Tree):
+class AverageBinaryTree(Tree):
     """
     二叉搜索树
     """
@@ -118,17 +118,25 @@ class BinaryTree(Tree):
                 is_left = False
         return None
 
-
-
-
 if __name__ == '__main__':
-    binary_tree = BinaryTree()
-    nums = [13, 9, 6, 11, 10,  5, 7, 15, 16, 14]
+    binary_tree = AverageBinaryTree()
+    nums = [8, 5, 3, 2, 4, 12, 9]
     for num in nums:
         binary_tree.insert(num)
     print(binary_tree.mid_order())
     print(binary_tree.search(4))
-    print(binary_tree.delete(13))
+    print(binary_tree.delete(12))
     print(binary_tree.mid_order())
-
+    print(binary_tree.delete(8))
+    print(binary_tree.mid_order())
+    print(binary_tree.delete(2))
+    print(binary_tree.mid_order())
+    print(binary_tree.delete(3))
+    print(binary_tree.mid_order())
+    print(binary_tree.delete(4))
+    print(binary_tree.mid_order())
+    print(binary_tree.delete(5))
+    print(binary_tree.mid_order())
+    print(binary_tree.delete(9))
+    print(binary_tree.mid_order())
 
