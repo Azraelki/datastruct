@@ -14,25 +14,48 @@ class AverageBinaryTree(Tree):
         :param value: 值
         :return: value
         """
-        if not self._root:
-            self._root = IntNode(value)
-            return
-        current = self._root
-        while current:
-            if current.value == value:
-                return
-            if current.value > value:
-                if current.left:
-                    current = current.left
-                else:
-                    current.left = IntNode(value)
-                    return
-            else:
-                if current.right:
-                    current = current.right
-                else:
-                    current.right = IntNode(value)
-                    return
+        self._root = self.__put(self._root, value)
+
+    def __put(self, node, new_value):
+        """
+
+        :param node:
+        :param new_node:
+        :return: 新的根节点
+        """
+        # 先将新值插入
+        if node is None:
+            return IntNode(new_value)
+        if node.value > new_value:
+            node.left = self.__put(node.left, new_value)
+        elif node.value < new_value:
+            node.right = self.__put(node.right, new_value)
+        else:
+            node.value = new_value
+
+        # 更新高度
+        node.height = max(self.height(node.left), self.height(node.right)) + 1
+        # 平衡因子
+        factor = self.balance_factor(node)
+
+        # 判定是否需要右旋
+        if factor > 1 and self.balance_factor(node.left) >= 0:
+            return self.right_rotate(node)
+        # 判定是否需要左旋+右旋
+        if factor > 1 and self.balance_factor(node.left) < 0:
+            node.left = self.left_rotate(node.left)
+            return self.right_rotate(node)
+
+        # 判定是否需要左旋
+        if factor < -1 and self.balance_factor(node.right) <= 0:
+            return self.left_rotate(node)
+        # 判定是否需要右旋+左旋
+        if factor < -1 and self.balance_factor(node.right) > 0:
+            node.right = self.right_rotate(node.right)
+            return self.left_rotate(node)
+
+        return node
+
 
     def _search(self, value: int):
         """
@@ -120,9 +143,10 @@ class AverageBinaryTree(Tree):
 
 if __name__ == '__main__':
     binary_tree = AverageBinaryTree()
-    nums = [8, 5, 3, 2, 4, 12, 9]
+    nums = [1, 2, 3, 4, 5, 6]
     for num in nums:
         binary_tree.insert(num)
+    print(binary_tree.height(binary_tree.search(8)))
     print(binary_tree.mid_order())
     print(binary_tree.search(4))
     print(binary_tree.delete(12))

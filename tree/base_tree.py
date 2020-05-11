@@ -18,6 +18,7 @@ class Node:
         self.next = None
         self.left = None
         self.right = None
+        self.height = 1
 
 
 
@@ -150,12 +151,63 @@ class Tree:
             node = node.left
         return node
 
+    def right_rotate(self, node):
+        """
+        右旋
+        :param node: 不平衡节点
+        """
+        assert isinstance(node, Node)
+        left = node.left
+        right = left.right
+        # 右旋
+        left.right = node
+        node.left = right
+
+        # 更新变动的两个节点的高度
+        node.height = max(self.height(node.left), self.height(node.right)) + 1
+        left.height = max(self.height(left.left), self.height(left.right)) + 1
+        # 返回旋转后的节点
+        return left
+
     def left_rotate(self, node):
         """
         左旋
         :param node: 不平衡节点
         """
         assert isinstance(node, Node)
+        right = node.right
+        left = right.left
+        # 左
+        right.left = node
+        node.right = left
+
+        # 更新变动的两个节点的高度
+        node.height = max(self.height(node.left), self.height(node.right)) + 1
+        right.height = max(self.height(right.left), self.height(right.right)) + 1
+        # 返回旋转后的节点
+        return right
+
+    def height(self, node):
+        """
+        获取数数的高度
+        :param node:
+        :return:
+        """
+        if node:
+            return node.height
+        else:
+            return 0
+
+    def balance_factor(self, node):
+        """
+        获取平衡因子
+        :param node:
+        :return:
+        """
+        if node is None:
+            return 0
+        return self.height(node.left) - self.height(node.right)
+
 
     def remove_prev_node(self, node):
         """
