@@ -18,7 +18,7 @@ class AverageBinaryTree(Tree):
 
     def __put(self, node, new_value):
         """
-
+        放置一个新的节点
         :param node:
         :param new_node:
         :return: 新的根节点
@@ -56,7 +56,6 @@ class AverageBinaryTree(Tree):
 
         return node
 
-
     def _search(self, value: int):
         """
         查询一个节点
@@ -76,91 +75,97 @@ class AverageBinaryTree(Tree):
     def _delete(self, value: int):
         """
         删除一个节点
-        1、找到指定节点
-        2、找到节点的前驱节点
-        3、断开前驱节点和父节点的联系，并将前驱节点的左子树作为其父节点的右子树
-        4、将前驱节点的左子树指向删除节点的左子树
-        5、将前驱节点的右子树指向删除节点的右子树
-        6、建立前驱节点和删除节点父节点的关系
-        7、返回指定节点
+        1、删除节点为叶子节点
+        2、删除节点有一个子节点
+        3、删除节点有两个子节点
+        递归更新树的高度，并维持新的平衡
         :param value:值
         :return: value
         """
-        current = self._root
-        parent = None
-        is_left = True
-        if not current:
+        self._root = self.__delete_node(self._root, value)
+
+    def __delete_node(self, node, value):
+        """
+        递归删除一个节点
+        :param node: 当前节点
+        :param value: 删除的值
+        :return:
+        """
+        if node is None:
             return None
-        while current:
-            if current.value == value:
-                if current.left and current.right:
-                    # 寻找前驱节点
-                    prev = self.find_right_last_node(current)
-                    if current.left == prev:
-                        # 当前驱节点是删除节点的左节点时，直接将删除节点右子树作为前驱节点的右子树
-                        prev.right = current.right
-                    else:
-                        # 断开前驱节点和父节点的联系，并将前驱节点的左子树作为其父节点的右子树
-                        self.remove_prev_node(current)
-                        prev.left = current.left
-                        prev.right = current.right
-                    if parent:
-                        if is_left:
-                            parent.left = prev
-                        else:
-                            parent.right = prev
-                    else:
-                        # 当为跟节点时，直接将跟节点指向前驱节点
-                        self._root = prev
-                elif current.left:
-                    # 只有左子树
-                    if parent:
-                        if is_left:
-                            parent.left = current.left
-                        else:
-                            parent.right = current.left
-                    else:
-                        self._root = current.left
+        if node.value > value:
+            node.left = self.__delete_node(node.left, value)
+        elif node.value < value:
+            node.right = self.__delete_node(node.right, value)
+        elif node.value == value:
+            if node.left and node.right:
+                # 获取删除节点的平衡一致
+                factor = self.balance_factor(node)
+                # 当左子树的高度大于右子树时,将当前节点的前驱节点作为新的节点返回，否则将当前节点的后继节点返回
+                if factor >= 0:
+                    pre_node = self.find_right_last_node(node)
+                    self.remove_prev_node(node)
+                    node.value = pre_node.value
+                    return node
                 else:
-                    # 只有右子树
-                    if parent:
-                        if is_left:
-                            parent.left = current.right
-                        else:
-                            parent.right = current.right
-                    else:
-                        self._root = current.right
-                return current
-            if current.value > value:
-                parent = current
-                current = current.left
-                is_left = True
+                    after_node = self.find_left_last_node(node)
+                    self.remove_after_node(node)
+                    node.value = after_node.value
+                    return node
+            elif node.left:
+                return node.left
             else:
-                parent = current
-                current = current.right
-                is_left = False
-        return None
+                return node.right
+
+        # 更新高度
+        node.height = max(self.height(node.left), self.height(node.right)) + 1
+        # 平衡因子
+        factor = self.balance_factor(node)
+
+        # 判定是否需要右旋
+        if factor > 1 and self.balance_factor(node.left) >= 0:
+            return self.right_rotate(node)
+        # 判定是否需要左旋+右旋
+        if factor > 1 and self.balance_factor(node.left) < 0:
+            node.left = self.left_rotate(node.left)
+            return self.right_rotate(node)
+
+        # 判定是否需要左旋
+        if factor < -1 and self.balance_factor(node.right) <= 0:
+            return self.left_rotate(node)
+        # 判定是否需要右旋+左旋
+        if factor < -1 and self.balance_factor(node.right) > 0:
+            node.right = self.right_rotate(node.right)
+            return self.left_rotate(node)
+
+        return node
+
+
 
 if __name__ == '__main__':
     binary_tree = AverageBinaryTree()
     nums = [1, 2, 3, 4, 5, 6]
     for num in nums:
         binary_tree.insert(num)
-    print(binary_tree.height(binary_tree.search(8)))
     print(binary_tree.mid_order())
-    print(binary_tree.search(4))
-    print(binary_tree.delete(12))
+    print(1)
+    binary_tree.delete(1)
     print(binary_tree.mid_order())
-    print(binary_tree.delete(8))
+    print(2)
+    binary_tree.delete(2)
     print(binary_tree.mid_order())
-    print(binary_tree.delete(2))
+    print(3)
+    binary_tree.delete(3)
     print(binary_tree.mid_order())
-    print(binary_tree.delete(3))
+    print(4)
+    binary_tree.delete(4)
     print(binary_tree.mid_order())
-    print(binary_tree.delete(4))
+    print(5)
+    binary_tree.delete(5)
     print(binary_tree.mid_order())
-    print(binary_tree.delete(5))
+    print(6)
+    binary_tree.delete(6)
     print(binary_tree.mid_order())
-    print(binary_tree.delete(9))
-    print(binary_tree.mid_order())
+
+
 

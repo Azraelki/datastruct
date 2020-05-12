@@ -225,6 +225,32 @@ class Tree:
         if current != node.left:
             parent.right = current.left
 
+    def remove_prev_node(self, node):
+        """
+        删除前驱节点
+        :param node:
+        :return:
+        """
+        if node.left is None:
+            return
+        node = node.left
+        while node.right and node.right.right:
+            node = node.right
+        node.right = None
+
+    def remove_after_node(self, node):
+        """
+        删除后继节点
+        :param node:
+        :return:
+        """
+        if node.right is None:
+            return
+        node = node.right
+        while node.left and node.left.left:
+            node = node.left
+        node.left = None
+
 
 
 
