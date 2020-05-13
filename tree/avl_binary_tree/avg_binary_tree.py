@@ -99,7 +99,7 @@ class AverageBinaryTree(Tree):
             node.right = self.__delete_node(node.right, value)
         elif node.value == value:
             if node.left and node.right:
-                # 获取删除节点的平衡一致
+                # 获取删除节点的平衡因子
                 factor = self.balance_factor(node)
                 # 当左子树的高度大于右子树时,将当前节点的前驱节点作为新的节点返回，否则将当前节点的后继节点返回
                 if factor >= 0:
