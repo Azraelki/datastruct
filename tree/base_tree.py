@@ -18,7 +18,9 @@ class Node:
         self.next = None
         self.left = None
         self.right = None
+        self.parent = None
         self.height = 1
+        self.is_red = True
 
 
 
@@ -221,35 +223,11 @@ class Tree:
         while current.right:
             parent = current
             current = current.right
-        # 当前驱节点不是传入节点的左节点时，将前驱节点的左子树作为父节点的右子树
-        if current != node.left:
+        # 当父节点为空时说明节点的前驱节点就是自己的左孩子
+        if parent:
             parent.right = current.left
-
-    def remove_prev_node(self, node):
-        """
-        删除前驱节点
-        :param node:
-        :return:
-        """
-        if node.left is None:
-            return
-        node = node.left
-        while node.right and node.right.right:
-            node = node.right
-        node.right = None
-
-    def remove_after_node(self, node):
-        """
-        删除后继节点
-        :param node:
-        :return:
-        """
-        if node.right is None:
-            return
-        node = node.right
-        while node.left and node.left.left:
-            node = node.left
-        node.left = None
+        else:
+            node.left = current.left
 
 
 
