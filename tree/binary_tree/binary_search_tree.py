@@ -1,5 +1,5 @@
 from tree.base_tree import Tree, IntNode
-
+import time
 
 class BinaryTree(Tree):
     """
@@ -14,25 +14,25 @@ class BinaryTree(Tree):
         :param value: 值
         :return: value
         """
-        if not self._root:
-            self._root = IntNode(value)
-            return
-        current = self._root
-        while current:
-            if current.value == value:
-                return
-            if current.value > value:
-                if current.left:
-                    current = current.left
-                else:
-                    current.left = IntNode(value)
-                    return
-            else:
-                if current.right:
-                    current = current.right
-                else:
-                    current.right = IntNode(value)
-                    return
+        self._root = self.__put(self._root, value)
+
+    def __put(self, node, new_value):
+        """
+        放置一个新的节点
+        :param node:
+        :param new_node:
+        :return: 新的根节点
+        """
+        # 先将新值插入
+        if node is None:
+            return IntNode(new_value)
+        if node.value > new_value:
+            node.left = self.__put(node.left, new_value)
+        elif node.value < new_value:
+            node.right = self.__put(node.right, new_value)
+        else:
+            node.value = new_value
+        return node
 
     def _search(self, value: int):
         """
@@ -63,90 +63,48 @@ class BinaryTree(Tree):
         :param value:值
         :return: value
         """
-        current = self._root
-        parent = None
-        is_left = True
-        if not current:
+        self._root = self.__delete_node(self._root, value)
+
+    def __delete_node(self, node, value):
+        """
+        递归删除一个节点
+        :param node: 当前节点
+        :param value: 删除的值
+        :return:
+        """
+        if node is None:
             return None
-        while current:
-            if current.value == value:
-                if current.left and current.right:
-                    # 寻找前驱节点
-                    prev = self.find_right_last_node(current)
-                    if current.left == prev:
-                        # 当前驱节点是删除节点的左节点时，直接将删除节点右子树作为前驱节点的右子树
-                        prev.right = current.right
-                    else:
-                        # 断开前驱节点和父节点的联系，并将前驱节点的左子树作为其父节点的右子树
-                        self.remove_prev_node(current)
-                        prev.left = current.left
-                        prev.right = current.right
-                    if parent:
-                        if is_left:
-                            parent.left = prev
-                        else:
-                            parent.right = prev
-                    else:
-                        # 当为跟节点时，直接将跟节点指向前驱节点
-                        self._root = prev
-                elif current.left:
-                    # 只有左子树
-                    if parent:
-                        if is_left:
-                            parent.left = current.left
-                        else:
-                            parent.right = current.left
-                    else:
-                        self._root = current.left
-                else:
-                    # 只有右子树
-                    if parent:
-                        if is_left:
-                            parent.left = current.right
-                        else:
-                            parent.right = current.right
-                    else:
-                        self._root = current.right
-                return current
-            if current.value > value:
-                parent = current
-                current = current.left
-                is_left = True
+        if node.value > value:
+            node.left = self.__delete_node(node.left, value)
+        elif node.value < value:
+            node.right = self.__delete_node(node.right, value)
+        elif node.value == value:
+            if node.left and node.right:
+                prev = self.find_right_last_node(node)
+                self.remove_prev_node(node)
+                node.value = prev.value
+                return node
+            elif node.left:
+                return node.left
             else:
-                parent = current
-                current = current.right
-                is_left = False
-        return None
-
-
+                return node.right
 
 
 if __name__ == '__main__':
     binary_tree = BinaryTree()
-    nums = [13, 9, 6, 11, 10,  5, 7, 15, 16, 14]
-    for num in nums:
+    nums = [1, 2, 3, 4, 5, 6]
+    start = time.time()
+    for num in range(1, 1001):
         binary_tree.insert(num)
-    print(binary_tree.mid_order())
-    print(binary_tree.search(4))
-    print(binary_tree.delete(13))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(9))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(16))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(7))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(5))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(6))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(11))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(10))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(14))
-    print(binary_tree.mid_order())
-    print(binary_tree.delete(15))
-    print(binary_tree.mid_order())
+    print(time.time() - start)
+    start = time.time()
+    for num in range(1, 101):
+        binary_tree.delete(num)
+    print(time.time() - start)
+    mid = binary_tree.mid_order()
+    print(mid)
+    for num in range(1, 901):
+        if mid[num - 1].value != 100 + num:
+            print('错误数据：' + str(num))
 
 

@@ -1,5 +1,5 @@
 from tree.base_tree import Tree, IntNode
-
+import time
 
 class AverageBinaryTree(Tree):
     """
@@ -145,27 +145,19 @@ class AverageBinaryTree(Tree):
 if __name__ == '__main__':
     binary_tree = AverageBinaryTree()
     nums = [1, 2, 3, 4, 5, 6]
-    for num in nums:
+    start = time.time()
+    for num in range(1, 10001):
         binary_tree.insert(num)
-    print(binary_tree.mid_order())
-    print(1)
-    binary_tree.delete(1)
-    print(binary_tree.mid_order())
-    print(2)
-    binary_tree.delete(2)
-    print(binary_tree.mid_order())
-    print(3)
-    binary_tree.delete(3)
-    print(binary_tree.mid_order())
-    print(4)
-    binary_tree.delete(4)
-    print(binary_tree.mid_order())
-    print(5)
-    binary_tree.delete(5)
-    print(binary_tree.mid_order())
-    print(6)
-    binary_tree.delete(6)
-    print(binary_tree.mid_order())
+    print(time.time() - start)
+    start = time.time()
+    for num in range(1, 1001):
+        binary_tree.delete(num)
+    print(time.time() - start)
+    mid = binary_tree.mid_order()
+    print(mid)
+    for num in range(1, 9001):
+        if mid[num - 1].value != 1000 + num:
+            print('错误数据：' + str(num))
 
 
 
