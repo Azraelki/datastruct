@@ -100,7 +100,7 @@ class AverageBinaryTree(Tree):
         left.is_red = False
         # 更新高度
         node.height = max(self.height(node.left), self.height(node.right)) + 1
-        left.height =  max(self.height(left.left), self.height(left.right)) + 1
+        left.height = max(self.height(left.left), self.height(left.right)) + 1
         return left
 
     def flip_color(self, node):
