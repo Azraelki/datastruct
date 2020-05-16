@@ -1,6 +1,5 @@
 import abc
 
-
 class Node:
     """
     节点对象
@@ -23,7 +22,6 @@ class Node:
         self.is_red = True
 
 
-
 class IntNode(Node):
     """
     int类型节点对象
@@ -39,6 +37,58 @@ class IntNode(Node):
 
     def __repr__(self):
         return str(self.value)
+
+
+class BNode(Node):
+    """
+    int类型节点对象
+        value:值
+        prev:前驱节点
+        next:后继节点
+    """
+    def __init__(self, value: int=None):
+        self.parent = None
+        self.values = []
+        self.childs = []
+        if value:
+            self.add_val(value)
+
+    def is_leaf(self):
+        """判定是否为空节点"""
+        if self.childs:
+            return False
+        return True
+
+    def add_val(self, value: int):
+        """添加一个值"""
+        self.values.append(value)
+        self.values = sorted(self.values)
+
+    def add_child(self, node: Node):
+        """添加一个子节点"""
+        self.childs.append(node)
+        self.childs = sorted(self.childs, key=lambda n: n.values[0])
+
+    def del_value(self, value):
+        """删除一个值，并返回他的下标"""
+        for k, v in enumerate(self.values):
+            if value == v:
+                del self.values[k]
+                return k
+        return None
+
+    def find_value(self, value):
+        """查找一个值"""
+        for k, v in enumerate(self.values):
+            if v == value:
+                return k, v
+        return None, None
+
+    def __str__(self):
+        return str(self.values)
+
+    def __repr__(self):
+        return str(self.values)
 
 
 class Tree:
