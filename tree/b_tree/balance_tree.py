@@ -1,5 +1,6 @@
 from tree.base_tree import Tree, BNode, Node
 import time
+import random
 
 class BalanceTree(Tree):
     """
@@ -100,7 +101,10 @@ class BalanceTree(Tree):
                 if value == v:
                     return v
                 if value < v:
-                    current = current.childs[k]
+                    if not current.is_leaf():
+                        current = current.childs[k]
+                    else:
+                        current = None
                     break
             else:
                 if not current.is_leaf():
@@ -131,7 +135,6 @@ class BalanceTree(Tree):
         if not self._root.values and self._root.childs:
             self._root = self._root.childs[0]
 
-
     def __delete_node(self, node, value):
         """
         递归删除一个节点
@@ -151,11 +154,11 @@ class BalanceTree(Tree):
             else:
                 if value == v:
                     # 寻找当前节点的后继节点, 并把节点的第一个值赋值到当前节点
+                    print('当前值数量：{},孩子节点数量：{}'.format(len(node.values), len(node.childs)))
                     after_node = self.get_after_node(node.childs[k+1])
                     node.values[k] = after_node.values[0]
                     # 将当前后继节点的值替换为当前节点，然后以当前节点的兄弟节点为删除节点开始重新开始递归
-                    self.__delete_node(node.childs[k+1], after_node.values[0])
-                    break
+                    node.childs[k + 1] = self.__delete_node(node.childs[k+1], after_node.values[0])
                 elif value < v:
                     node.childs[k] = self.__delete_node(node.childs[k], value)
                     break
@@ -178,27 +181,41 @@ class BalanceTree(Tree):
         :param k: 孩子节点所在的下标
         :return:
         """
+        # 当前child是parent最后一个孩子时向前找，否则向后找
         if len(parent.childs) > k+1:
             brother = parent.childs[k+1]
         else:
             brother = parent.childs[k-1]
         # 当兄弟节点的阶数大于限制阶数时，从兄弟节点借一个作为新的父节点，老的父节点下沉到失衡的节点
         if len(brother.values) > self._m/2:
-            child.add_val(parent.values[0 if k-1 < 0 else k-1])
-            del parent.values[0 if k-1 < 0 else k-1]
-            parent.add_val(brother.values[0])
-            del brother.values[0]
+            # 当child为最后parent最后一个节点时，下沉父节点最后一个值，否则下沉指定下标的值，此处和上边选择的brother节点相对应
+            if k < len(parent.values):
+                child.add_val(parent.values[k])
+                del parent.values[k]
+                parent.add_val(brother.values[0])
+                del brother.values[0]
+            else:
+                child.add_val(parent.values[-1])
+                del parent.values[-1]
+                parent.add_val(brother.values[-1])
+                del brother.values[-1]
         else:
             # 当兄弟节点的阶数小于或等于阶数时，合并两个兄弟节点和父节点
             for v in child.values:
                 brother.add_val(v)
             for c in child.childs:
                 brother.add_child(c)
-            brother.add_val(parent.values[0 if k-1 < 0 else k-1])
-            # 删除父节点值
-            del parent.values[0 if k-1 < 0 else k-1]
-            # 删除当前失衡孩子节点
+            # 此处的操作根据brother分别处理,兄弟节点添加父节点的值，并删除父节点中的值
+            if k < len(parent.values):
+                brother.add_val(parent.values[k])
+                del parent.values[k]
+            else:
+                brother.add_val(parent.values[-1])
+                del parent.values[-1]
+            # 删除父节点中废弃的子节点
             del parent.childs[k]
+        if not child.is_leaf():
+            pass
 
 
 
@@ -219,16 +236,18 @@ if __name__ == '__main__':
     print(time.time()-start)
     start = time.time()
     print(binary_tree.search(100))
-    for num in range(100, 1001):
-        binary_tree.delete(num)
-        print(binary_tree.search(num))
+    # for num in range(100, 1001):
+    #     binary_tree.delete(num)
     print(time.time()-start)
     mid = binary_tree.mid_order()
     print(mid)
     for num in range(1, 100):
         if mid[num-1] != num:
             print('错误数据：'+str(num))
-    for num in range(1001, 10001):
-        if mid[99+num]!= num:
-            print(mid[99+num], num)
-
+    result = [num for num in range(1, 10001)]
+    while result:
+        num = random.choice(result)
+        binary_tree.delete(num)
+        result.remove(num)
+        # print(num)
+        # print(binary_tree.mid_order())
