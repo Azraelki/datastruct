@@ -1,6 +1,8 @@
 from tree.base_tree import Tree, BNode, Node
 import time
 import random
+import tqdm
+import math
 
 class BalanceTree(Tree):
     """
@@ -21,7 +23,7 @@ class BalanceTree(Tree):
         """
         self._root = self.__put(self._root, value)
         # 当根节点阶数满时进行拆分
-        if len(self._root.values) >= self._m:
+        if len(self._root.values) >= self._m and len(self._root.values)>2:
             self._split(None, self._root)
 
     def __put(self, node, new_value):
@@ -150,15 +152,17 @@ class BalanceTree(Tree):
             if node.is_leaf():
                 if value == v:
                     del node.values[k]
-                    return node
+                    break
             else:
                 if value == v:
                     # 寻找当前节点的后继节点, 并把节点的第一个值赋值到当前节点
-                    print('当前值数量：{},孩子节点数量：{}'.format(len(node.values), len(node.childs)))
+                    # print('当前值数量：{},孩子节点数量：{}'.format(len(node.values), len(node.childs)))
+                    # print('当前node：{},孩子节点数量：{}'.format(node.values, node.childs))
                     after_node = self.get_after_node(node.childs[k+1])
                     node.values[k] = after_node.values[0]
                     # 将当前后继节点的值替换为当前节点，然后以当前节点的兄弟节点为删除节点开始重新开始递归
                     node.childs[k + 1] = self.__delete_node(node.childs[k+1], after_node.values[0])
+                    break
                 elif value < v:
                     node.childs[k] = self.__delete_node(node.childs[k], value)
                     break
@@ -168,9 +172,11 @@ class BalanceTree(Tree):
                 node.childs[-1] = self.__delete_node(node.childs[-1], value)
 
         # 1、判定当前节点是否因删除节点导致节点阶数小于限制的阶数,若小于则触发修复动作
+        # print('修复前：当前node：{},孩子节点数量：{}'.format(node.values, node.childs))
         for k, child in enumerate(node.childs):
-            if len(child.values) < self._m//2:
+            if len(child.values) < math.ceil(self._m/2)-1:
                 self._fill_node(node, child, k)
+        # print('修复后：当前node：{},孩子节点数量：{}'.format(node.values, node.childs))
         return node
 
     def _fill_node(self, parent, child, k):
@@ -184,39 +190,40 @@ class BalanceTree(Tree):
         # 当前child是parent最后一个孩子时向前找，否则向后找
         if len(parent.childs) > k+1:
             brother = parent.childs[k+1]
-        else:
-            brother = parent.childs[k-1]
-        # 当兄弟节点的阶数大于限制阶数时，从兄弟节点借一个作为新的父节点，老的父节点下沉到失衡的节点
-        if len(brother.values) > self._m/2:
-            # 当child为最后parent最后一个节点时，下沉父节点最后一个值，否则下沉指定下标的值，此处和上边选择的brother节点相对应
-            if k < len(parent.values):
+            # 当兄弟节点的阶数大于限制阶数时，从兄弟节点借一个作为新的父节点，老的父节点下沉到失衡的节点
+            if len(brother.values) > math.ceil(self._m/2) - 1 and brother.is_leaf():
                 child.add_val(parent.values[k])
-                del parent.values[k]
-                parent.add_val(brother.values[0])
+                parent.values[k] = brother.values[0]
                 del brother.values[0]
             else:
-                child.add_val(parent.values[-1])
-                del parent.values[-1]
-                parent.add_val(brother.values[-1])
-                del brother.values[-1]
-        else:
-            # 当兄弟节点的阶数小于或等于阶数时，合并两个兄弟节点和父节点
-            for v in child.values:
-                brother.add_val(v)
-            for c in child.childs:
-                brother.add_child(c)
-            # 此处的操作根据brother分别处理,兄弟节点添加父节点的值，并删除父节点中的值
-            if k < len(parent.values):
+                # 当兄弟节点的阶数小于或等于阶数时，合并两个兄弟节点和父节点
+                for v in child.values:
+                    brother.add_val(v)
+                for c in child.childs:
+                    brother.add_child(c)
+                # 添加父节点值
                 brother.add_val(parent.values[k])
                 del parent.values[k]
+                del parent.childs[k]
+        else:
+            brother = parent.childs[k-1]
+            # 当兄弟节点的阶数大于最小限制阶数时，从兄弟节点借一个作为新的父节点，老的父节点下沉到失衡的节点
+            # 注意：从兄弟借一个节点的前提为兄弟为叶子节点
+            if len(brother.values) > math.ceil(self._m/2) - 1 and brother.is_leaf():
+                child.add_val(parent.values[-1])
+                parent.values[-1] = brother.values[-1]
+                del brother.values[-1]
             else:
+                # 当兄弟节点的阶数小于或等于阶数时，合并两个兄弟节点和父节点
+                # 注意：从兄弟借一个节点的前提为兄弟为叶子节点
+                for v in child.values:
+                    brother.add_val(v)
+                for c in child.childs:
+                    brother.add_child(c)
+                # 添加父节点值
                 brother.add_val(parent.values[-1])
                 del parent.values[-1]
-            # 删除父节点中废弃的子节点
-            del parent.childs[k]
-        if not child.is_leaf():
-            pass
-
+                del parent.childs[k]
 
 
     def get_after_node(self, node):
@@ -228,11 +235,15 @@ class BalanceTree(Tree):
 
 
 if __name__ == '__main__':
-    binary_tree = BalanceTree()
+    binary_tree = BalanceTree(m=3)
     nums = [1, 2, 3, 4, 5, 6]
     start = time.time()
-    for num in range(1, 10001):
+    result = [num for num in range(1, 10001)]
+    random.seed(1)
+    while result:
+        num = random.choice(result)
         binary_tree.insert(num)
+        result.remove(num)
     print(time.time()-start)
     start = time.time()
     print(binary_tree.search(100))
@@ -241,13 +252,15 @@ if __name__ == '__main__':
     print(time.time()-start)
     mid = binary_tree.mid_order()
     print(mid)
-    for num in range(1, 100):
-        if mid[num-1] != num:
-            print('错误数据：'+str(num))
     result = [num for num in range(1, 10001)]
+    random.seed(1)
+    bar = tqdm.trange(len(mid))
     while result:
         num = random.choice(result)
         binary_tree.delete(num)
         result.remove(num)
         # print(num)
         # print(binary_tree.mid_order())
+        bar.update()
+    bar.close()
+    print('最终结果：', binary_tree.mid_order())
