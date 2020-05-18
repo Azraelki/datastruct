@@ -279,6 +279,24 @@ class Tree:
         else:
             node.left = current.left
 
+    def remove_after_node(self, node):
+        """
+        将当前节点的前驱节点和其父节点断开
+        :param node:
+        :return:
+        """
+        assert isinstance(node, Node)
+        current = node.right
+        parent = None
+        while current.left:
+            parent = current
+            current = current.left
+        # 当父节点为空时说明节点的前驱节点就是自己的右孩子
+        if parent:
+            parent.left = current.right
+        else:
+            node.right = current.right
+
 
 
 
