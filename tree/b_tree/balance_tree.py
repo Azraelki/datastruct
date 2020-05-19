@@ -193,9 +193,12 @@ class BalanceTree(Tree):
         if len(parent.childs) > k+1:
             brother = parent.childs[k+1]
             # 当兄弟节点的阶数大于限制阶数时，从兄弟节点借一个作为新的父节点，老的父节点下沉到失衡的节点
-            if len(brother.values) > math.ceil(self._m/2) - 1 and brother.is_leaf():
+            if len(brother.values) > math.ceil(self._m/2) - 1:
                 child.add_val(parent.values[k])
                 parent.values[k] = brother.values[0]
+                if not brother.is_leaf():
+                    child.add_child(brother.childs[0])
+                    del brother.childs[0]
                 del brother.values[0]
             else:
                 # 当兄弟节点的阶数小于或等于阶数时，合并两个兄弟节点和父节点
@@ -210,10 +213,12 @@ class BalanceTree(Tree):
         else:
             brother = parent.childs[k-1]
             # 当兄弟节点的阶数大于最小限制阶数时，从兄弟节点借一个作为新的父节点，老的父节点下沉到失衡的节点
-            # 注意：从兄弟借一个节点的前提为兄弟为叶子节点
             if len(brother.values) > math.ceil(self._m/2) - 1 and brother.is_leaf():
                 child.add_val(parent.values[-1])
                 parent.values[-1] = brother.values[-1]
+                if not brother.is_leaf():
+                    child.add_child(brother.childs[-1])
+                    del brother.childs[-1]
                 del brother.values[-1]
             else:
                 # 当兄弟节点的阶数小于或等于阶数时，合并两个兄弟节点和父节点
