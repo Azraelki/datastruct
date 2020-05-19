@@ -39,7 +39,9 @@ class BalanceTree(Tree):
         for k, v in enumerate(node.values):
             # 如果当前节点为叶子节点，则直接添加
             if node.is_leaf():
-                node.add_val(new_value)
+                # 当叶子节点不包含当前值时添加进去
+                if new_value not in node.values:
+                    node.add_val(new_value)
                 break
             else:
                 # 当为非叶子节点且当前值小于遍历值时，向下递归
