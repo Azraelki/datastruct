@@ -50,6 +50,8 @@ class BNode(Node):
         self.parent = None
         self.values = []
         self.childs = []
+        self.left = None
+        self.right = None
         if value:
             self.add_val(value)
 
