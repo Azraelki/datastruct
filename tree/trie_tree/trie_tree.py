@@ -61,7 +61,7 @@ class TrieTree(Tree):
                 return True
         return False
 
-    def count_word(self, word:str):
+    def count_word(self, word: str):
         """
         计算一个单词在字典中出现的次数
         :param word:
@@ -160,9 +160,6 @@ class TrieTree(Tree):
                 end_pointer -= 1
 
         return result
-
-
-
 
 
 if __name__ == '__main__':
