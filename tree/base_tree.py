@@ -39,6 +39,32 @@ class IntNode(Node):
         return str(self.value)
 
 
+class TrieNode(Node):
+    """
+    字典树类型节点对象
+    nodes:子节点列表
+    count:经过当前节点的单词数量
+    word_count:词频
+    is_end:当前节点是否为结束节点(单词结束)
+    char:当前节点的字符
+    """
+    def __init__(self, char):
+        self.nodes = [None for x in range(27)]
+        self.count = 0
+        self.is_end = False
+        self.word_count = 0
+        if char:
+            self.char = char
+        else:
+            self.char = None
+
+    def __str__(self):
+        return str(self.char)
+
+    def __repr__(self):
+        return str(self.char)
+
+
 class BNode(Node):
     """
     int类型节点对象
