@@ -57,7 +57,7 @@ class TrieTree(Tree):
                 return False
         else:
             # 正常结束后，判定当前节点是否为单次结束节点
-            if current.is_end:
+            if current and current.is_end:
                 return True
         return False
 
@@ -115,36 +115,51 @@ class TrieTree(Tree):
                     result.append(prefix + node.char)
                 self.list(node, prefix + node.char, result)
 
-    def split_content(self, content):
+    def forward_split_content(self, content):
         """
         分词,最大前向匹配
         :param content: 文本
         :return:
         """
-        pointer = 0
+        start_pointer = 0
+        end_pointer = len(content)
         result = []
-        while pointer < len(content):
-            tem_pointer = pointer
-            prefix = ''
-            aim_word = None
-            current = self._root
-            while current and tem_pointer < len(content):
-                point = self.char_to_index[content[tem_pointer]]
-                current = current.nodes[point]
-                if current:
-                    prefix += current.char
-                    if current.is_end:
-                        aim_word = prefix
-                        pointer = tem_pointer
-                tem_pointer += 1
-            # 当目标值存在时添加到结果列表中
-            if aim_word:
-                result.append(aim_word)
-            # 每完成一次循环前进一位
-            pointer += 1
+        while start_pointer < len(content):
+            tem_content = content[start_pointer:end_pointer]
+            if self.search(tem_content):
+                result.append(tem_content)
+                start_pointer = end_pointer
+                end_pointer = len(content)
+            else:
+                end_pointer -= 1
+            if end_pointer <= start_pointer:
+                start_pointer += 1
+                end_pointer = len(content)
+
         return result
 
+    def backward_split_content(self, content):
+        """
+        分词,最大逆向向匹配
+        :param content: 文本
+        :return:
+        """
+        start_pointer = 0
+        end_pointer = len(content)
+        result = []
+        while end_pointer >= 0:
+            tem_content = content[start_pointer:end_pointer]
+            if self.search(tem_content):
+                result.append(tem_content)
+                end_pointer = start_pointer
+                start_pointer = 0
+            else:
+                start_pointer += 1
+            if start_pointer >= end_pointer:
+                start_pointer = 0
+                end_pointer -= 1
 
+        return result
 
 
 
@@ -173,4 +188,6 @@ if __name__ == '__main__':
     print(binary_tree.list_by_prefix('b'))
 
     # 分词
-    print(binary_tree.split_content('abc a abcd hiikh'))
+    print(binary_tree.search('abc'))
+    print('最大正向匹配：', binary_tree.forward_split_content('abc a abcd hiikh'))
+    print('最大逆向匹配：', binary_tree.backward_split_content('abc a abcd hiikh'))
