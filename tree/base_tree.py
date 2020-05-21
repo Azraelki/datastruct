@@ -1,5 +1,6 @@
 import abc
 
+
 class Node:
     """
     节点对象
@@ -165,7 +166,6 @@ class Tree:
         result = []
         return self._mid_order(self._root, result)
 
-
     def follow_order(self):
         """
         后续遍历
@@ -287,7 +287,6 @@ class Tree:
         if node is None:
             return 0
         return self.height(node.left) - self.height(node.right)
-
 
     def remove_prev_node(self, node):
         """
