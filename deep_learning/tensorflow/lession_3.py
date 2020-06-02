@@ -129,7 +129,32 @@ def function_3():
     model.fit(trainX, trainY, n_epoch=5, shuffle=True, validation_set=(testX, testY), show_metric=True, batch_size=128)
 
 
+def function_4():
+    """vgg网络滤波器"""
+    from vis.utils import utils
+    from vis.visualization import visualize_activation
+    base_model = applications.VGG16(weights='imagenet', include_top=True)
+    base_model.summary()
+
+    layer_name = 'predictions'
+    layer_idx = [idx for idx, layer in enumerate(base_model.layers) if layer_name == layer.name][0]
+    # 在同一层生成三个不同的图像
+    vis_images = []
+    # 预测层的20代表的是北斗鸟这个类别
+    for idx in [20, 20, 20]:
+        img = visualize_activation(base_model, layer_idx, filter_indices=idx)
+        img = utils.draw_text(img, str(idx))
+        vis_images.append(img)
+
+    stitched = utils.stitch_images(vis_images)
+    plt.axis('off')
+    plt.imshow(stitched)
+    plt.title(layer_name)
+    plt.show()
+
+
 if __name__ == '__main__':
     # function_2()
     # function_1()
-    function_3()
+    # function_3()
+    function_4()
