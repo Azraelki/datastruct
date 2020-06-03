@@ -45,6 +45,7 @@ def image_load_and_convert(image_path, model):
     image = preprocess(image)
     return image
 
+
 def classify_image(image_path, model):
     """定义辅助函数，进行图像预测并显示前5的概率"""
     img = image_load_and_convert(image_path, model)
@@ -57,6 +58,31 @@ def classify_image(image_path, model):
         print("{}. {}. {:.2f}%".format(i+1, label, prob*100))
 
 
+def print_model(model):
+    """打印模型详情"""
+    print('model:',model)
+    Network = MODELS[model][0]
+    model = Network(weights='imagenet')
+    model.summary()
+
+
+def function_1():
+    """抽取网络某层的特征"""
+    from keras.applications.vgg16 import preprocess_input
+    from keras.preprocessing import image
+    from keras.models import Model
+    base_model = applications.VGG16()
+    model = Model(inputs=base_model.input, outputs=base_model.get_layer('block4_pool').output)
+    image = load_img('D:/work/data/train/0/cat.1.jpg', target_size=(224, 224))
+    image = img_to_array(image)
+    image = np.expand_dims(image, axis=0)
+    image = preprocess_input(image)
+    features = model.predict(image)
+    print(features)
+
+
 if __name__ == '__main__':
-    for key in list(MODELS.keys())[2:]:
-        classify_image('D:/work/data/train/0/cat.1.jpg', key)
+    function_1()
+    # for key in list(MODELS.keys())[2:]:
+    #     # classify_image('D:/work/data/train/0/cat.1.jpg', key)
+    #     print_model(key)
