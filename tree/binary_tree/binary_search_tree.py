@@ -1,5 +1,7 @@
 from tree.base_tree import Tree, IntNode
 import time
+import random
+import tqdm
 
 class BinaryTree(Tree):
     """
@@ -94,17 +96,29 @@ if __name__ == '__main__':
     binary_tree = BinaryTree()
     nums = [1, 2, 3, 4, 5, 6]
     start = time.time()
-    for num in range(1, 1001):
+    result = [num for num in range(1, 10001)]
+    random.seed(1)
+    while result:
+        num = random.choice(result)
         binary_tree.insert(num)
+        result.remove(num)
     print(time.time() - start)
     start = time.time()
-    for num in range(1, 101):
-        binary_tree.delete(num)
+    print(binary_tree.search(100))
+    # for num in range(100, 1001):
+    #     binary_tree.delete(num)
     print(time.time() - start)
     mid = binary_tree.mid_order()
     print(mid)
-    for num in range(1, 901):
-        if mid[num - 1].value != 100 + num:
-            print('错误数据：' + str(num))
-
-
+    result = [num for num in range(1, 10001)]
+    random.seed(1)
+    bar = tqdm.trange(len(mid))
+    while result:
+        num = random.choice(result)
+        binary_tree.delete(num)
+        result.remove(num)
+        # print(num)
+        # print(binary_tree.mid_order())
+        bar.update()
+    bar.close()
+    print('最终结果：', binary_tree.mid_order())
