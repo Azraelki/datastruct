@@ -1,19 +1,23 @@
 import enum
 import time
 import random
-
-from threading import Timer
+import logging
+import os
+import json
 
 from cap.raft.communication import CommunicationManager
-from cap.raft.entry_log import Entry, Log,  RequestVoteRPC, RequestVoteRPCResult, AppendRPC, AppendRPCResult
+from cap.raft.log_manager import LogManager
 
 # 定义节点状态枚举类，leader,follower,candidate
-State = enum.Enum('State', ('LEADER', 'FOLLOWER', 'CANDIDATE'))
+State = {'LEADER': 'leader', 'FOLLOWER': 'follower', 'CANDIDATE': 'candidate'}
+RpcType = {'APPEND': 'append', 'APPEND_RESPONSE': 'append_response', 'VOTE': 'vote', 'VOTE_RESPONSE': 'vote_response', 'CLIENT_APPEND': 'client_append'}
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(lineno)d')
 
 
 class Node:
     """
-        节点类，用于代表一个分布式机器
+        节点类，用于代表一个分布式节点
     """
 
     def __init__(self, config: dict):
@@ -24,246 +28,94 @@ class Node:
             min_election_period:最小选举超时时间
         """
         self.config = config
-        self.my_id = config.get('my_id', 0)
-        self.heart_beat_period = config.get('heart_beat_period', 30)
-        self.min_election_period = config.get('min_election_period', 200)
+        self.my_id = config.get('my_id')
+        self.leader_id = None
+        self.heart_beat_period = config.get('heart_beat_period', 200)
+        self.min_election_period = config.get('min_election_period', 5000)
+        # 获取节点列表
+        self.nodes = config.get('nodes', {})
 
         # 创建通讯管理器
         self.communication_manager = CommunicationManager(config)
+
         # 创建状态机
         self.state_machine = StateMachine()
 
-        # 创建状态对象，初始化为candidate状态
-        self.state = State.CANDIDATE
+        # 创建状态对象，初始化为跟随者状态
+        self.state = State['FOLLOWER']
         # 初始化当前任期为0
         self.current_term = 0
         # 初始化当前轮次投票的节点的my_id,首次启动时默认为None
         self.vote_for = None
-        # 初始化选票计数为0
-        self.vote_count = 0
-        # 初始化多数派数量为0
-        self.majority_count = 0
+        # 从本地恢复最近的任期号和投票情况
+        self.restore()
+
         # 初始化最大提交记录的索引值
-        self.last_commit_index = 0
+        self.last_commit_index = -1
         # 初始化最大执行记录的索引值
-        self.last_apply_index = 0
+        self.last_apply_index = -1
+
+        # 初始化日志管理器
+        self.log_manager = LogManager(self.my_id)
+
+        # 初始化投票信息
+        self.vote_count = {_my_id: 0 for _my_id in self.nodes.keys()}
 
         # 创建下一个要发送的记录列表（leader节点使用，用于记录所有follower的日志复制）
         # 选举结束后初始化，初始值为leader最后一个entry的index+1
-        self.next_index = {}
+        self.next_index = {_my_id: self.log_manager.last_log_index+1 for _my_id in self.nodes.keys()}
 
         # 创建一个用于记录每个节点和leader保持一致的最后一个日志记录的索引（leader节点使用，用于记录所有follower的日志复制）
-        # 初始值为0
-        self.match_index = {}
+        # 初始值为-1
+        self.match_index = {_my_id: -1 for _my_id in self.nodes.keys()}
 
-        # 初始化日志列表
-        self.logs = []
-
-        # 选举时间戳
-        self.elect_tamp = None
-
-    def start(self):
-        """
-        启动节点
-        :return:
-        """
-        # 1、检查本地储存的日志并进行恢复
-        # 2、启动本地端口监听
-        # 3、随机生成选举超时时间，初始化投票信息，发起投票请求
-        self.change_state(State.CANDIDATE)
-        self.reset_election_period()
-        self.elect_cycle()
-
-    def append_request(self, entry_list: list = None):
-        """
-        角色：leader
-        发起日志复制请求
-            步骤-1、组装日志对象，组装RPC请求对象，
-            步骤-2、将发送的请求添加到自己的日志记录中
-            步骤-2、发送日志复制请求
-        :param entry_list: 记录列表
-        :return:
-        """
-        log = Log()
-        last_term, last_index = self.__get_last_log_term_and_index()
-        log.term = self.current_term
-        log.index = last_index + 1
-        log.entries = entry_list
-
-        rpc = AppendRPC()
-        rpc.term = self.current_term
-        rpc.leader_id = self.my_id
-        rpc.leader_commit_index = self.last_commit_index
-        rpc.prev_log_term = last_term
-        rpc.prev_log_index = last_index
-        rpc.log = log
-
-        self.logs.append(log)
-        self.communication_manager.send_to_all(rpc)
-
-    def deal_append_request(self, rpc: AppendRPC):
-        """
-        角色：follower
-        处理日志复制请求
-            步骤-1、如果leader的任期小于当前任期，返回错误
-            步骤-2、查找match log，判定是否一致,如果一致则追加日志，并返回成功
-                步骤2.1、更新自己的commit_index
-            步骤-3、否则，日志复制失败，返回错误
-        :return:
-        """
+        # 下次选举时间
+        self.next_elect_time = 0
         self.reset_election_period()
 
-        response = AppendRPCResult()
-        response.term = self.current_term
-        response.candidate_id = self.my_id
+        # 下次心跳时间
+        self.next_heart_beat = 0
+        self.reset_heart_beat_period()
 
-        if rpc.term < self.current_term:
-            response.success = False
-            response.message = '任期号小于follower节点'
-        else:
-            pre_log = self.find_log_by_index(rpc.prev_log_index)
-            if (rpc.prev_log_index == 0) or (pre_log and pre_log.term == rpc.prev_log_term):
-                self.clear_by_match_index(rpc.prev_log_index)
-                if rpc.leader_commit_index > self.last_commit_index:
-                    self.last_commit_index = min(rpc.leader_commit_index, rpc.prev_log_index)
-                if rpc.log:
-                    self.logs.append(rpc.log)
-                else:
-                    response.is_heart_beat = True
-                response.success = True
-            else:
-                response.success = False
-                response.message = 'match失败'
-        self.communication_manager.send_to(response, rpc.leader_id)
-
-    def deal_append_response(self, rpc: AppendRPCResult):
+    def store(self):
         """
-        角色：leader
-        处理日志复制响应
-            步骤-1、判断返回的任期号是否大于当前任期号
-            步骤-2、判定日志辅助是否成功
-            步骤-3、失败重试
+        持久化当前任期及最近一次投票情况
         :return:
         """
-        self.reset_election_period()
+        if os.path.exists(self.my_id):
+            with open(self.my_id+'/node.json', 'w', encoding='utf-8') as f:
+                json.dump({'current_term': self.current_term,
+                           'vote_for': self.vote_for,
+                           'last_commit_index': self.last_commit_index,
+                           'last_apply_index': self.last_apply_index,
+                           'state_machine': self.state_machine.state_dict,
+                           }, f, ensure_ascii=False, indent=4)
 
-        if rpc.term > self.current_term:
-            self.change_state(State.FOLLOWER)
-        elif rpc.success:
-            if not rpc.is_heart_beat:
-                self.next_index[rpc.candidate_id] += 1
-                self.match_index[rpc.candidate_id] += 1
-                self.update_last_commit_index()
-        else:
-            print(rpc.message)
-
-            self.next_index[rpc.candidate_id] -= 1
-            self.match_index[rpc.candidate_id] = 0 if self.match_index[rpc.candidate_id] <= 0 \
-                else self.match_index[rpc.candidate_id] - 1
-
-            new_log = self.find_log_by_index(self.next_index[rpc.candidate_id])
-            prev_log = self.find_log_by_index(self.match_index[rpc.candidate_id])
-            new_rpc = AppendRPC()
-            new_rpc.leader_id = self.current_term
-            new_rpc.leader_commit_index = self.last_commit_index
-            new_rpc.prev_log_term = prev_log.term if prev_log else None
-            new_rpc.prev_log_index = prev_log.index if prev_log else 0
-            new_rpc.log = new_log
-            self.communication_manager.send_to(new_rpc, rpc.candidate_id)
-
-    def vote_request(self):
+    def restore(self):
         """
-        角色：candidate
-        发起选举请求
-            步骤-1、组装选举请求信息
-            步骤-2、向所有机器发送选举请求
+        从本地恢复任期及最近一次投票情况
         :return:
         """
-        print('我是-{},当前的任期号是-{}，我开始选举了'.format(self.my_id, self.current_term))
+        if os.path.exists(self.my_id+'/node.json'):
+            with open(self.my_id+'/node.json', 'r', encoding='utf-8') as f:
+                node_info = json.load(f)
+                if 'current_term' in node_info and 'vote_for' in node_info:
+                    self.current_term = node_info.get('current_term')
+                    self.vote_for = node_info.get('vote_for')
 
-        self.current_term += 1
-        self.reset_vote_count()
-        self.reset_majority_count()
-
-        rpc = RequestVoteRPC()
-        rpc.term = self.current_term
-        rpc.candidate_id = self.my_id
-        rpc.last_log_term, rpc.last_log_index = self.__get_last_log_term_and_index()
-
-        self.reset_election_period()
-        self.communication_manager.send_to_all(rpc)
-
-    def deal_vote_request(self, rpc: RequestVoteRPC):
+    def reset_election_period(self):
         """
-        角色：candidate,follower
-        处理选举请求
-        :param rpc 选举请求对象
-            1、选举发起者任期小于当前节点，选举失败
-            2、否则，若选举发起者的日志记录至少和自己一样新，则投票给对方，否则选举失败
+        重置选举超时时间
         :return:
         """
-        self.reset_election_period()
+        self.next_elect_time = time.time()*1000 + self.min_election_period + random.randint(0, self.min_election_period)
 
-        response = RequestVoteRPCResult()
-        response.term = self.current_term
-        if rpc.term < self.current_term:
-            response.vote_granted = False
-        else:
-            last_log_term, last_log_index = self.__get_last_log_term_and_index()
-            if rpc.last_log_term > last_log_term or \
-                    (rpc.last_log_term == last_log_term and rpc.last_log_index >= last_log_index):
-                response.vote_granted = True
-                self.vote_for = rpc.candidate_id
-                self.current_term = rpc.term
-            else:
-                response.vote_granted = False
-        self.communication_manager.send_to(response, rpc.candidate_id)
-
-    def deal_vote_response(self, rpc: RequestVoteRPCResult):
+    def reset_heart_beat_period(self):
         """
-        角色：candidate,leader
-        :param rpc:选举响应对象
-        处理选举响应
-            步骤-1、响应任期小于当前任期则忽略
-            步骤-2、响应任期大于当前任期，转变为follower
-            步骤-3、累加选票，当选票数量大于等于多数派时转换为leader,并发送心跳包
+        重置心跳超时时间
         :return:
         """
-        self.reset_election_period()
-
-        if not rpc or rpc.term > self.current_term:
-            self.change_state(State.FOLLOWER)
-        elif rpc.term == self.current_term and rpc.vote_granted:
-            self.vote_count += 1
-            if self.vote_count >= self.majority_count and self.state == State.CANDIDATE:
-                print('leader is {}'.format(self.my_id))
-                self.change_state(State.LEADER)
-                _, max_index = self.__get_last_log_term_and_index()
-                self.append_request()
-
-    def heart_beat(self):
-        """
-        角色：leader
-        心跳请求,复用日志复制请求，设置传入的entry为空
-        :return:
-        """
-        if self.state == State.LEADER:
-            self.append_request()
-            timer = Timer(self.heart_beat_period/1000, self.heart_beat, None)
-            timer.start()
-
-    def __get_last_log_term_and_index(self):
-        """
-        获取最近一条日志的任期号和索引号
-        :return:(last_log_term, last_log_index)
-        """
-        last_log_term = 0
-        last_log_index = 0
-        if self.logs:
-            log = self.logs[-1]
-            last_log_term = log.term
-            last_log_index = log.index
-        return last_log_term, last_log_index
+        self.next_heart_beat = time.time()*1000 + self.heart_beat_period
 
     def change_state(self, target_state: State):
         """
@@ -272,85 +124,343 @@ class Node:
         :return:
         """
         self.state = target_state
-        if self.state == State.LEADER:
-            self.heart_beat()
 
-    def reset_election_period(self):
+    def append_entries(self, data: dict):
         """
-        重置选举超时时间
+        角色：follower
+        日志复制
+        :param data:
         :return:
         """
-        self.elect_tamp = time.time()*1000 + self.min_election_period + random.randint(0, self.min_election_period)
+        response = {
+            'type': RpcType['APPEND_RESPONSE'],
+            'term': self.current_term,
+            'source_id': self.my_id,
+            'target_id': data['source_id'],
+            'success': False
+        }
+        # 数据任期小于当前节点任期则直接返回失败
+        if data['term'] < self.current_term:
+            response['success'] = False
+            self.communication_manager.send_to(response, self.nodes[response['target_id']])
+            return
 
-    def reset_vote_count(self):
+        # 设置当前节点leader为source
+        self.leader_id = data['leader_id']
+
+        # 当match失败时，返回失败响应，并且删除match_index及之后所有记录
+        if data['pre_log_term'] != self.log_manager.get_term_by_index(data['pre_log_index']):
+            response['success'] = False
+            self.log_manager.delete_logs(data['pre_log_index'])
+            self.communication_manager.send_to(response, self.nodes[response['target_id']])
+            return
+
+        log = data.get('log')
+
+        # 当entries为空时则为心跳请求
+        if not log or not log.get('entries'):
+            return
+
+        # 添加日志，并发送成功响应
+        self.log_manager.append_log(log)
+        response['success'] = True
+        self.communication_manager.send_to(response, self.nodes[response['target_id']])
+
+        # 设置节点的最新的commit_index
+        if data['leader_commit_index'] > self.last_commit_index:
+            self.last_commit_index = min(data['leader_commit_index'], self.log_manager.last_log_index)
+
+    def vote_request(self, data: dict):
         """
-        重置选票技术
+        角色: follower
+        用于处理vote请求
+        :param data:
         :return:
         """
-        self.vote_count = 0
+        response = {
+            'type': RpcType['VOTE_RESPONSE'],
+            'term': self.current_term,
+            'source_id': self.my_id,
+            'target_id': data['source_id'],
+            'vote_granted': False
+        }
+        # 任期号小于当前任期则放弃投票
+        if data['term'] < self.current_term:
+            response['vote_granted'] = False
+            self.communication_manager.send_to(response, self.nodes[response['target_id']])
+            return
 
-    def reset_majority_count(self):
+        if not self.vote_for or self.vote_for == data['candidate_id']:
+            if data['last_log_term'] >= self.log_manager.last_log_term \
+                    and data['last_log_index'] >= self.log_manager.last_log_index:
+                self.vote_for = data['source_id']
+                self.store()
+                response['vote_granted'] = True
+                self.communication_manager.send_to(response, self.nodes[response['target_id']])
+            else:
+                # 当前节点的信息比source新时
+                self.vote_for = None
+                self.store()
+                response['vote_granted'] = False
+                self.communication_manager.send_to(response, self.nodes[response['target_id']])
+        else:
+            response['vote_granted'] = False
+            self.communication_manager.send_to(response, self.nodes[response['target_id']])
+
+    def redirect(self, data, addr):
         """
-        重置多数派数量
+        转发信息
+        :param data:
+        :param addr:
         :return:
         """
-        node_list = self.config.get('node_list', [])
-        self.majority_count = len(node_list)/2 + 1
+        if not data:
+            return None
+        if data['type'] == RpcType['CLIENT_APPEND']:
+            if self.state != State['LEADER']:
+                if self.leader_id:
+                    self.communication_manager.send_to(data, self.nodes[self.leader_id])
+                return None
+            else:
+                return data
 
-    def find_log_by_index(self, index):
+        if data['target_id'] != self.my_id:
+            self.communication_manager.send_to(data, self.nodes[data['target_id']])
+            return None
+        else:
+            return data
+
+        return data
+
+    def all_do(self, data: dict):
         """
-        根据日志索引号日志
-        :param index: 日志索引号
+        所有节点都需执行的操作
+        :param data: 信息
         :return:
         """
-        result = None
-        if self.logs:
-            for key, log in enumerate(self.logs):
-                if log.index == index:
-                    result = log
+        # 执行已提交的记录到状态机
+        if self.last_commit_index > self.last_apply_index:
+            old_value = None
+            if 'x' in self.state_machine.state_dict:
+                old_value = self.state_machine.state_dict['x']
+            for log in self.log_manager.get_logs(self.last_apply_index+1, self.last_commit_index+1):
+                self.state_machine.apply_entries(log.get('entries', []))
+            logging.info('当前角色：【{}】，leader是：【{}】 ---更新状态机，before:【{}】, after:【{}】---'.format(self.state,
+                                                                                             self.leader_id,
+                                                                                             old_value,
+                                                                                             self.state_machine.state_dict['x']))
+            self.last_apply_index = self.last_commit_index
+
+        if not data or data['type'] == RpcType['CLIENT_APPEND']:
+            return
+
+        logging.info('当前角色：【{}】，leader是：【{}】 ---Begin-All---'.format(self.state, self.leader_id))
+
+        # 更新最新的任期
+        if data['term'] > self.current_term:
+            logging.info('当前角色：【{}】 ---任期号过小，转变为follower，data.term:【{}】, current_term:【{}】---'.format(self.state, data['term'], self.current_term))
+            self.current_term = data['term']
+            self.vote_for = None
+            self.leader_id = data['source_id']
+            self.change_state(State['FOLLOWER'])
+            self.store()
+
+    def follower_do(self, data: dict):
+        """
+        跟随者要做的操作
+        :param data: 信息
+        :return:
+        """
+        now = time.time() * 1000
+        if data:
+            if data['type'] == RpcType['APPEND']:
+                # 当接收到leader请求时
+                self.append_entries(data)
+            elif data['type'] == RpcType['VOTE']:
+                # 当接收到candidate请求时
+                self.vote_request(data)
+            # 重置选举超时时间
+            if self.current_term == data['term']:
+                self.reset_election_period()
+        else:
+            if now >= self.next_elect_time:
+                # 超过下次选举时间后进入candidate状态，并发送选举请求
+                self.reset_election_period()
+                self.change_state(State['CANDIDATE'])
+                self.current_term += 1
+                self.vote_for = self.my_id
+                self.store()
+                # 初始化投票信息
+                self.vote_count = {_my_id: 0 for _my_id in self.nodes.keys()}
+
+    def candidate_do(self, data: dict):
+        now = time.time() * 1000
+
+        for target_id in self.nodes.keys():
+            if self.vote_count[target_id] == 0 and target_id != self.my_id:
+                request = {
+                    'type': RpcType['VOTE'],
+                    'term': self.current_term,
+                    'source_id': self.my_id,
+                    'target_id': target_id,
+                    'candidate_id': self.my_id,
+                    'last_log_term': self.log_manager.last_log_term,
+                    'last_log_index': self.log_manager.last_log_index
+                }
+                self.communication_manager.send_to(request, self.nodes[target_id])
+                logging.info(
+                    '当前角色：【{}】 ---发送vote请求，source_id:【{}】, target_id:【{}】, current_term:【{}】---'.format(self.state, self.my_id,
+                                                                                                target_id, self.current_term))
+
+        if data and data['term'] == self.current_term:
+            if data['type'] == RpcType['VOTE_RESPONSE']:
+                if data['vote_granted']:
+                    self.vote_count[data['source_id']] = 1
+                count = sum(self.vote_count.values())
+                logging.info(
+                    '当前角色：【{}】 ---当前票数：【{}】， current_term:【{}】---'.format(self.state, count, self.current_term))
+                # 超过半数时成为leader
+                if count >= (len(self.vote_count.keys())//2):
+                    logging.info(
+                        '当前角色：【{}】 ---当前票数：【{}】， 票数达到多数派，当选为【{}】号leader---'.format(self.state, count+1, self.current_term))
+                    self.change_state(State['LEADER'])
+                    self.vote_for = None
+                    self.leader_id = self.my_id
+                    self.store()
+                    self.next_heart_beat = 0
+                    self.next_index = {_my_id: self.log_manager.last_log_index + 1 for _my_id in self.nodes.keys()}
+                    self.match_index = {_my_id: -1 for _my_id in self.nodes.keys()}
+                    return
+
+            elif data['type'] == RpcType['APPEND_RESPONSE']:
+                logging.info(
+                    '当前角色：【{}】 ---接收到高任期请求，转变为follower---'.format(self.state))
+                # 收到日志复制请求时变为follower
+                self.reset_election_period()
+                self.change_state(State['FOLLOWER'])
+                self.vote_for = None
+
+                self.store()
+                return
+        else:
+            count = sum(self.vote_count.values())
+            # 超过半数时成为leader
+            if count >= (len(self.vote_count.keys()) // 2):
+                logging.info(
+                    '当前角色：【{}】 ---当前票数：【{}】， 票数达到多数派，当选为【{}】号leader---'.format(self.state, count, self.current_term))
+                self.change_state(State['LEADER'])
+                self.vote_for = None
+                self.leader_id = self.my_id
+                self.store()
+                self.next_heart_beat = 0
+                self.next_index = {_my_id: self.log_manager.last_log_index + 1 for _my_id in self.nodes.keys()}
+                self.match_index = {_my_id: -1 for _my_id in self.nodes.keys()}
+                return
+
+        if now > self.next_elect_time:
+            # 选举超时后开启下一轮选举
+            self.reset_election_period()
+            self.current_term += 1
+            self.vote_for = self.my_id
+            self.store()
+            # 初始化投票信息
+            self.vote_count = {_my_id: 0 for _my_id in self.nodes.keys()}
+            logging.info(
+                '当前角色：【{}】 ---选举超时，开启下轮选举，任期为【{}】---'.format(self.state, self.current_term))
+
+    def leader_do(self, data: dict):
+        """
+        leader需做的操作
+        :param data: 信息
+        :return:
+        """
+        now = time.time() * 1000
+        if now > self.next_heart_beat:
+            for target_id in self.next_index.keys():
+                if target_id != self.my_id:
+                    request = {
+                        'type': RpcType['APPEND'],
+                        'source_id': self.my_id,
+                        'target_id': target_id,
+                        'term': self.current_term,
+                        'leader_id': self.my_id,
+                        'log': self.log_manager.get_log_by_index(self.next_index[target_id]),
+                        'pre_log_term': self.log_manager.get_term_by_index(self.match_index[target_id]),
+                        'pre_log_index': self.match_index[target_id],
+                        'leader_commit_index': self.last_commit_index
+                    }
+                    self.communication_manager.send_to(request, self.nodes[target_id])
+                    logging.info(
+                        '当前角色：【{}】 ---发送日志复制请求，source_id:【{}】, target_id:【{}】, index:【{}】,current_term:【{}】---'.format(self.state,
+                                                                                                            self.my_id,
+                                                                                                            target_id,
+                                                                                                            self.next_index[target_id],
+                                                                                                            self.current_term))
+            self.reset_heart_beat_period()
+
+        if data and data['type'] == RpcType['CLIENT_APPEND']:
+            log = {
+                'term': self.current_term,
+                'index': self.log_manager.last_log_index + 1,
+                'entries': data['entries']
+            }
+            # 持有
+            self.communication_manager.hold_client(data['address'], log['index'])
+            self.log_manager.append_log(log)
+            return
+
+        if data and data['term'] == self.current_term:
+            if data['type'] == RpcType['APPEND_RESPONSE']:
+                if data['success']:
+                    self.next_index[data['source_id']] += 1
+                    self.match_index[data['source_id']] += 1
+                else:
+                    self.next_index[data['source_id']] -= 1
+                    if self.next_index[data['source_id']] < 0:
+                        self.next_index[data['source_id']] = 0
+
+        while True:
+            N = self.last_commit_index + 1
+            count = 0
+            for _my_id in self.match_index:
+                if self.match_index[_my_id] >= N:
+                    count += 1
+                if count >= len(self.nodes) // 2:
+                    self.last_commit_index = N
+                    # 释放客户端
+                    for address in self.communication_manager.client_socket.keys():
+                        if self.communication_manager.client_socket[address] < self.last_commit_index:
+                            self.communication_manager.send_to({'status': 'success', 'index': self.communication_manager.client_socket[address]}, address.split(':'))
+                            self.communication_manager.release_client(address)
                     break
-        return result
-
-    def clear_by_match_index(self, index):
-        """
-        根据match index清除之后所有的日志
-        :param index: 日志索引号
-        :return:
-        """
-        if index == 0:
-            self.logs.clear()
-        if self.logs:
-            for key, log in enumerate(self.logs):
-                if log.index == index:
-                    self.logs = self.logs[:key+1]
-                    break
-
-    def update_last_commit_index(self):
-        """
-        角色：leader
-        更新last_commit_index
-        :return:
-        """
-        count_dict = {}
-        for v in self.match_index.values():
-            count_dict[v] += 1
-        for k, v in count_dict.items():
-            if v > self.majority_count and k > self.last_commit_index:
-                prev_last_commit_index = self.last_commit_index
-                self.last_commit_index = k
-                for log in self.logs:
-                    if prev_last_commit_index < log.index <= self.last_commit_index:
-                        self.state_machine.apply_entries(log.entries)
+            else:
                 break
 
-    def elect_cycle(self):
-        if time.time()*1000 > self.elect_tamp:
-            self.change_state(State.CANDIDATE)
-            self.vote_request()
-            self.reset_election_period()
-        else:
-            timer = Timer(self.min_election_period/1000, self.elect_cycle, None)
-            timer.start()
+    def run(self):
+        while True:
+            now = time.time()*1000 + 50
+            try:
+                try:
+                    data, addr = self.communication_manager.recv()
+                except Exception as e:
+                    data, addr = None, None
+
+                data = self.redirect(data, addr)
+
+                self.all_do(data)
+
+                if self.state == State['FOLLOWER']:
+                    self.follower_do(data)
+
+                if self.state == State['CANDIDATE']:
+                    self.candidate_do(data)
+
+                if self.state == State['LEADER']:
+                    self.leader_do(data)
+
+            except Exception as e:
+                logging.info(e)
+                raise e
 
 
 class StateMachine:
@@ -361,13 +471,13 @@ class StateMachine:
     def __init__(self):
         self.state_dict = dict()
 
-    def apply_entry(self, entry: Entry):
+    def apply_entry(self, entry: dict):
         """
         执行一条entry
         :param entry: 记录
         :return:
         """
-        self.state_dict[entry.key] = entry.value
+        self.state_dict[entry['key']] = entry['value']
 
     def apply_entries(self, entries: list):
         """
@@ -380,13 +490,14 @@ class StateMachine:
 
 
 if __name__ == '__main__':
-    node1 = Node(config={'my_id': 1})
-    node2 = Node(config={'my_id': 2})
-    node3 = Node(config={'my_id': 3})
-    cm = CommunicationManager(None)
-    cm.append_node(node1)
-    cm.append_node(node2)
-    cm.append_node(node3)
-    node1.start()
-    node2.start()
-    node3.start()
+    config = {
+        'my_id': 'node_1',
+        'address': ('localhost', 8000),
+        'nodes': {
+            'node_1': ('localhost', 8000),
+            # 'node_2': ('localhost', 8001),
+            'node_3': ('localhost', 8002)
+        }
+    }
+    node = Node(config)
+    node.run()

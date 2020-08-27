@@ -1,4 +1,5 @@
-from cap.raft.entry_log import RPC
+import socket
+import json
 
 
 class CommunicationManager:
@@ -7,43 +8,54 @@ class CommunicationManager:
     """
 
     def __init__(self, config: dict):
-        self.node_dict = {}
+        self.nodes = config.get('nodes', {})
+        self.internal_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.internal_socket.settimeout(3)
+        self.internal_socket.bind(config.get('address'))
+        self.client_socket = {
 
-    def send_to_all(self, rpc: RPC):
+        }
+
+    def send_to_all(self, rpc: dict):
         """
-        发送RPC到当前配置的所有文件上
-        :param rpc: 请求对象
+        发送信息给所有节点
+        :param rpc: 信息
         :return:
         """
-        if rpc.type == 1:
-            for node in self.node_dict.values():
-                if node.my_id != rpc.leader_id:
-                    self.send_to(rpc, node.my_id)
-        if rpc.type == 3:
-            for node in self.node_dict.values():
-                if node.my_id != rpc.candidate_id:
-                    self.send_to(rpc, node.my_id)
+        for _my_id in self.nodes:
+            self.send_to(rpc, self.nodes[_my_id])
 
-    def send_to(self, rpc: RPC, my_id: int):
+    def send_to(self, rpc: dict, addr: tuple):
         """
         发送RPC到给指定的节点
-        :param rpc: 请求对象
-        :param my_id: 目标及其的my_id
+        :param rpc: 信息
+        :param addr: 目标地址和端口
         :return:
         """
-        if rpc.type == 1:
-            self.node_dict[my_id].deal_append_request(rpc)
-        elif rpc.type == 2:
-            self.node_dict[my_id].deal_append_response(rpc)
-        elif rpc.type == 3:
-            self.node_dict[my_id].deal_vote_request(rpc)
-        elif rpc.type == 4:
-            self.node_dict[my_id].deal_vote_response(rpc)
+        rpc_str = json.dumps(rpc, ensure_ascii=False).encode('utf-8')
+        self.internal_socket.sendto(rpc_str, addr)
 
-    def append_node(self, node):
+    def recv(self):
         """
-        添加一个节点
+        从绑定的端口接收信息
         :return:
         """
-        self.node_dict[node.my_id] = node
-        node.communication_manager = self
+        rpc_str, addr = self.internal_socket.recvfrom(65535)
+        return json.loads(rpc_str), addr
+
+    def hold_client(self, address: str, index):
+        """
+        持有客户端
+        :param address:
+        :param index:
+        :return:
+        """
+        self.client_socket[address] = index
+
+    def release_client(self, address: str):
+        """
+        释放客户端
+        :param address:
+        :return:
+        """
+        del self.client_socket[key]

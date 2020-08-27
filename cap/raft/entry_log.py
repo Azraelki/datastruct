@@ -1,3 +1,5 @@
+import json
+
 class Entry:
     """
         记录对象
@@ -10,6 +12,24 @@ class Entry:
         """
         self.key = kwargs.get('key')
         self.value = kwargs.get('value')
+
+    def instance_from_str(self, json_str: str):
+        """
+        通过json字符串序列化对象
+        :param json_str: json字符串
+        :return:
+        """
+        json_obj = json.loads(json_str)
+        for k, v in json_obj.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+
+    def str_from_instance(self):
+        """
+        将自身转换为json字符串
+        :return:
+        """
+
 
 
 class Log:
@@ -33,11 +53,15 @@ class RPC:
     RPC对象基类
     """
 
-    def __init__(self, rpc_type: int):
+    def __init__(self, rpc_type: int, **kwargs):
         """
         :param rpc_type: 请求类型，1-日志复制 2-日志复制响应 3-选举 4-选举响应
+        :param source_id: 来源ID
+        :param target_id: 目标ID
         """
         self.type = rpc_type
+        self.source_id = kwargs.get('source_id', None)
+        self.target_id = kwargs.get('target_id', None)
 
 
 class AppendRPC(RPC):
@@ -80,7 +104,6 @@ class AppendRPCResult(RPC):
         self.is_heart_beat = False
         self.term = kwargs.get('term', None)
         self.success = kwargs.get('success', None)
-        self.message = kwargs.get('message', None)
 
 
 class RequestVoteRPC(RPC):
@@ -116,4 +139,7 @@ class RequestVoteRPCResult(RPC):
         super(RequestVoteRPCResult, self).__init__(4)
         self.term = kwargs.get('term', None)
         self.vote_granted = kwargs.get('vote_granted', None)
+
+
+
 
