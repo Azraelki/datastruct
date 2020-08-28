@@ -461,6 +461,8 @@ class Node:
                 if self.state == State['LEADER']:
                     self.leader_do(data)
 
+                self.store()
+
             except Exception as e:
                 logging.info(e)
                 raise e
