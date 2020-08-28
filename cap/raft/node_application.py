@@ -137,6 +137,7 @@ class Node:
             'term': self.current_term,
             'source_id': self.my_id,
             'target_id': data['source_id'],
+            'is_heart_beat': False,
             'success': False
         }
         # 数据任期小于当前节点任期则直接返回失败
@@ -153,17 +154,21 @@ class Node:
             response['success'] = False
             self.log_manager.delete_logs(data['pre_log_index'])
             self.communication_manager.send_to(response, self.nodes[response['target_id']])
+            logging.info('当前角色：【{}】，与leader：【{}】日志【{}】记录不符，记录恢复中'.format(self.state, self.leader_id, data['pre_log_index']))
             return
 
         log = data.get('log')
 
         # 当entries为空时则为心跳请求
         if not log or not log.get('entries'):
-            return
-
-        # 添加日志，并发送成功响应
-        self.log_manager.append_log(log)
-        response['success'] = True
+            response['is_heart_beat'] = True
+            response['success'] = True
+            logging.info('当前角色：【{}】，接收到来自leader：【{}】 心跳检测'.format(self.state, self.leader_id))
+        else:
+            # 添加日志，并发送成功响应
+            self.log_manager.append_log(log)
+            response['success'] = True
+            logging.info('当前角色：【{}】，接收到来自leader：【{}】 的日志复制，term:【{}】，index:【{}】'.format(self.state, self.leader_id, log['term'], log['index']))
         self.communication_manager.send_to(response, self.nodes[response['target_id']])
 
         # 设置节点的最新的commit_index
@@ -254,8 +259,6 @@ class Node:
         if not data or data['type'] == RpcType['CLIENT_APPEND']:
             return
 
-        logging.info('当前角色：【{}】，leader是：【{}】 ---Begin-All---'.format(self.state, self.leader_id))
-
         # 更新最新的任期
         if data['term'] > self.current_term:
             logging.info('当前角色：【{}】 ---任期号过小，转变为follower，data.term:【{}】, current_term:【{}】---'.format(self.state, data['term'], self.current_term))
@@ -297,7 +300,8 @@ class Node:
         now = time.time() * 1000
 
         for target_id in self.nodes.keys():
-            if self.vote_count[target_id] == 0 and target_id != self.my_id:
+            count = sum(self.vote_count.values())
+            if self.vote_count[target_id] == 0 and target_id != self.my_id and count == 0:
                 request = {
                     'type': RpcType['VOTE'],
                     'term': self.current_term,
@@ -385,8 +389,8 @@ class Node:
                         'term': self.current_term,
                         'leader_id': self.my_id,
                         'log': self.log_manager.get_log_by_index(self.next_index[target_id]),
-                        'pre_log_term': self.log_manager.get_term_by_index(self.match_index[target_id]),
-                        'pre_log_index': self.match_index[target_id],
+                        'pre_log_term': self.log_manager.get_term_by_index(self.next_index[target_id]-1),
+                        'pre_log_index': self.next_index[target_id]-1,
                         'leader_commit_index': self.last_commit_index
                     }
                     self.communication_manager.send_to(request, self.nodes[target_id])
@@ -411,13 +415,11 @@ class Node:
 
         if data and data['term'] == self.current_term:
             if data['type'] == RpcType['APPEND_RESPONSE']:
-                if data['success']:
+                if data['success'] and not data['is_heart_beat']:
                     self.next_index[data['source_id']] += 1
                     self.match_index[data['source_id']] += 1
-                else:
+                elif not data['success']:
                     self.next_index[data['source_id']] -= 1
-                    if self.next_index[data['source_id']] < 0:
-                        self.next_index[data['source_id']] = 0
 
         while True:
             N = self.last_commit_index + 1
@@ -430,7 +432,8 @@ class Node:
                     # 释放客户端
                     for address in self.communication_manager.client_socket.keys():
                         if self.communication_manager.client_socket[address] < self.last_commit_index:
-                            self.communication_manager.send_to({'status': 'success', 'index': self.communication_manager.client_socket[address]}, address.split(':'))
+                            addr_list = address.split(':')
+                            self.communication_manager.send_to({'status': 'success', 'index': self.communication_manager.client_socket[address]}, (addr_list[0], int(addr_list[1])))
                             self.communication_manager.release_client(address)
                     break
             else:
