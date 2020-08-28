@@ -40,7 +40,7 @@ def recv():
 
         data = json.loads(data)
         print('recv: status:' + str(data['index']) + ' has been committed')
-        logging.info('status: {}, {} 已经被提交'.format(data['status'], data['index']))
+        # logging.info('status: {}, {} 已经被提交'.format(data['status'], data['index']))
 
 
 if __name__ == '__main__':

@@ -43,19 +43,20 @@ class CommunicationManager:
         rpc_str, addr = self.internal_socket.recvfrom(65535)
         return json.loads(rpc_str), addr
 
-    def hold_client(self, address: str, index):
+    def hold_client(self, address: str, index: int):
         """
         持有客户端
         :param address:
         :param index:
         :return:
         """
-        self.client_socket[address] = index
+        addr = address.split(":")
+        self.client_socket[index] = (addr[0], int(addr[1]))
 
-    def release_client(self, address: str):
+    def release_client(self, key: int):
         """
         释放客户端
-        :param address:
+        :param key: index
         :return:
         """
         del self.client_socket[key]

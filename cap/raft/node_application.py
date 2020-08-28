@@ -315,7 +315,7 @@ class Node:
                 logging.info(
                     '当前角色：【{}】 ---发送vote请求，source_id:【{}】, target_id:【{}】, current_term:【{}】---'.format(self.state, self.my_id,
                                                                                                 target_id, self.current_term))
-
+        self.vote_count[self.my_id] = 1
         if data and data['term'] == self.current_term:
             if data['type'] == RpcType['VOTE_RESPONSE']:
                 if data['vote_granted']:
@@ -324,7 +324,7 @@ class Node:
                 logging.info(
                     '当前角色：【{}】 ---当前票数：【{}】， current_term:【{}】---'.format(self.state, count, self.current_term))
                 # 超过半数时成为leader
-                if count >= (len(self.vote_count.keys())//2):
+                if count > (len(self.vote_count.keys())//2):
                     logging.info(
                         '当前角色：【{}】 ---当前票数：【{}】， 票数达到多数派，当选为【{}】号leader---'.format(self.state, count+1, self.current_term))
                     self.change_state(State['LEADER'])
@@ -349,7 +349,7 @@ class Node:
         else:
             count = sum(self.vote_count.values())
             # 超过半数时成为leader
-            if count >= (len(self.vote_count.keys()) // 2):
+            if count > (len(self.vote_count.keys()) // 2):
                 logging.info(
                     '当前角色：【{}】 ---当前票数：【{}】， 票数达到多数派，当选为【{}】号leader---'.format(self.state, count, self.current_term))
                 self.change_state(State['LEADER'])
@@ -408,7 +408,7 @@ class Node:
                 'index': self.log_manager.last_log_index + 1,
                 'entries': data['entries']
             }
-            # 持有
+            # 持有客户端
             self.communication_manager.hold_client(data['address'], log['index'])
             self.log_manager.append_log(log)
             return
@@ -416,25 +416,26 @@ class Node:
         if data and data['term'] == self.current_term:
             if data['type'] == RpcType['APPEND_RESPONSE']:
                 if data['success'] and not data['is_heart_beat']:
+                    self.match_index[data['source_id']] += self.next_index[data['source_id']]
                     self.next_index[data['source_id']] += 1
-                    self.match_index[data['source_id']] += 1
                 elif not data['success']:
                     self.next_index[data['source_id']] -= 1
 
         while True:
             N = self.last_commit_index + 1
             count = 0
+            self.match_index[self.my_id] = self.log_manager.last_log_index
             for _my_id in self.match_index:
                 if self.match_index[_my_id] >= N:
                     count += 1
-                if count >= len(self.nodes) // 2:
+                if count > len(self.nodes) // 2:
                     self.last_commit_index = N
                     # 释放客户端
-                    for address in self.communication_manager.client_socket.keys():
-                        if self.communication_manager.client_socket[address] < self.last_commit_index:
-                            addr_list = address.split(':')
-                            self.communication_manager.send_to({'status': 'success', 'index': self.communication_manager.client_socket[address]}, (addr_list[0], int(addr_list[1])))
-                            self.communication_manager.release_client(address)
+                    address = self.communication_manager.client_socket.get(N, None)
+                    if address:
+                        self.communication_manager.send_to(
+                            {'status': 'success', 'index': N}, address)
+                        self.communication_manager.release_client(N)
                     break
             else:
                 break
