@@ -416,7 +416,7 @@ class Node:
         if data and data['term'] == self.current_term:
             if data['type'] == RpcType['APPEND_RESPONSE']:
                 if data['success'] and not data['is_heart_beat']:
-                    self.match_index[data['source_id']] += self.next_index[data['source_id']]
+                    self.match_index[data['source_id']] = self.next_index[data['source_id']]
                     self.next_index[data['source_id']] += 1
                 elif not data['success']:
                     self.next_index[data['source_id']] -= 1
@@ -425,6 +425,7 @@ class Node:
             N = self.last_commit_index + 1
             count = 0
             self.match_index[self.my_id] = self.log_manager.last_log_index
+            # print('当前N：{}， 当前match:{}'.format(N, self.match_index))
             for _my_id in self.match_index:
                 if self.match_index[_my_id] >= N:
                     count += 1
