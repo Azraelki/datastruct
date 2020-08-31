@@ -47,8 +47,6 @@ class Node:
         self.current_term = 0
         # 初始化当前轮次投票的节点的my_id,首次启动时默认为None
         self.vote_for = None
-        # 从本地恢复最近的任期号和投票情况
-        self.restore()
 
         # 初始化最大提交记录的索引值
         self.last_commit_index = -1
@@ -57,6 +55,9 @@ class Node:
 
         # 初始化日志管理器
         self.log_manager = LogManager(self.my_id)
+
+        # 从本地恢复最近的任期号和投票情况
+        self.restore()
 
         # 初始化投票信息
         self.vote_count = {_my_id: 0 for _my_id in self.nodes.keys()}
@@ -102,6 +103,10 @@ class Node:
                 if 'current_term' in node_info and 'vote_for' in node_info:
                     self.current_term = node_info.get('current_term')
                     self.vote_for = node_info.get('vote_for')
+                    self.last_commit_index = node_info.get('last_commit_index')
+                    self.last_apply_index = node_info.get('last_apply_index')
+                    for log in self.log_manager.get_logs(0):
+                        self.state_machine.apply_entries(log.get('entries', []))
 
     def reset_election_period(self):
         """
