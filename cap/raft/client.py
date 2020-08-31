@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 def send():
     cs = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     servers = [
-        ('localhost', 8001),
+        ('localhost', 8000),
         ('localhost', 8002),
         ('localhost', 8003)
     ]

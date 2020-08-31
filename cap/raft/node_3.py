@@ -5,9 +5,11 @@ if __name__ == '__main__':
         'my_id': 'node_3',
         'address': ('localhost', 8003),
         'nodes': {
-            'node_1': ('localhost', 8001),
+            'node_1': ('localhost', 8000),
             'node_2': ('localhost', 8002),
-            'node_3': ('localhost', 8003)
+            'node_3': ('localhost', 8003),
+            'node_4': ('192.168.3.28', 8004),
+            'node_5': ('192.168.3.28', 8005),
         }
     }
     node = Node(config)
