@@ -326,7 +326,7 @@ class Node:
                 # 超过半数时成为leader
                 if count > (len(self.vote_count.keys())//2):
                     logging.info(
-                        '当前角色：【{}】 ---当前票数：【{}】， 票数达到多数派，当选为【{}】号leader---'.format(self.state, count+1, self.current_term))
+                        '当前角色：【{}】 ---当前票数：【{}】， 票数达到多数派，当选为【{}】号leader---'.format(self.state, count, self.current_term))
                     self.change_state(State['LEADER'])
                     self.vote_for = None
                     self.leader_id = self.my_id
