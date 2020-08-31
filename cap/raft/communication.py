@@ -11,7 +11,7 @@ class CommunicationManager:
         self.nodes = config.get('nodes', {})
         self.internal_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.internal_socket.settimeout(3)
-        self.internal_socket.bind(config.get('address'))
+        self.internal_socket.bind(('0.0.0.0', config.get('address')[1]))
         self.client_socket = {
 
         }
