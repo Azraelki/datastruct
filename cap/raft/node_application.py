@@ -30,7 +30,7 @@ class Node:
         self.config = config
         self.my_id = config.get('my_id')
         self.leader_id = None
-        self.heart_beat_period = config.get('heart_beat_period', 200)
+        self.heart_beat_period = config.get('heart_beat_period', 30)
         self.min_election_period = config.get('min_election_period', 5000)
         # 获取节点列表
         self.nodes = config.get('nodes', {})
