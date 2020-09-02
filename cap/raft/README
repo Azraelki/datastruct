@@ -1,0 +1,3 @@
+1、修改node_1.py、node_2.py、node_3.py内部的配置文件
+2、修改clinet中本地监听的ip地址
+3、分别执行 python node_1.py,python node_1.py,python node_1.py,python client.py
