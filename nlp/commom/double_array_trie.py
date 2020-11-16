@@ -117,12 +117,12 @@ class LongestSearcher:
                 if self.value is not None:
                     self._i = self.begin + self.length  # // 输出最长词后，从该词语的下一个位置恢复扫描
                     return True
-                self._i = self.begin
+                self._i = self.begin  # 转移失败，也将起点往前挪一个，重新开始，状态归零
                 self.begin += 1
                 b = self._base[0]
             p = b
             n = self._base[p]
-            if b == self._check[p] and n < 0:
+            if b == self._check[p] and n < 0:  # base[p] == check[p] && base[p] < 0 查到一个词
                 self.length = self._i - self.begin + 1
                 self.index = -n - 1
                 self.value = self._values[self.index]

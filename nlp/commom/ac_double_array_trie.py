@@ -25,10 +25,11 @@ class ACDoubleArrayTrie:
         :return:
         """
         found = []
-        for term in self.segment.seg(text):
-            start = term.offset
-            end = start + len(term.word) - 1
-            found.append((term.word, None, start, end))
+        HanLP.segment(text)
+        # for term in HanLP.segment(text):
+        #     start = term.offset
+        #     end = start + len(term.word) - 1
+        #     found.append((term.word, None, start, end))
         return found
 
 

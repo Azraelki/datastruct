@@ -49,6 +49,10 @@ class Trie(Node):
     """
     __name__ = 'Trie'
 
+    def __init__(self, dic: dict):
+        super(Trie, self).__init__()
+        self.update(dic)
+
     def __contains__(self, key):
         return self[key] is not None
 
@@ -138,8 +142,53 @@ class Trie(Node):
         return found
 
 
+class TrieDict:
+
+    __name__ = 'TrieDict'
+
+    def __init__(self, dic: dict):
+        """
+        :param dic: 词典
+        """
+        self.prefix_trie = Trie({key: key for key in dic})
+        self.suffix_trie = Trie({key[::-1]: key for key in dic})
+
+    def __contains__(self, key):
+        return self.prefix_trie[key] is not None
+
+    def __getitem__(self, key):
+        return self.prefix_trie[key]
+
+    def __setitem__(self, key, value):
+        self.prefix_trie[key] = value
+        self.suffix_trie[key[::-1]] = value
+
+    def __delitem__(self, key):
+        del self.prefix_trie[key]
+        del self.suffix_trie[key[::-1]]
+
+    def forward_parse_longest(self, text: str):
+        return self.prefix_trie.parse_longest(text)
+
+    def backward_parse_longest(self, text: str):
+        founds = self.suffix_trie.parse_longest(text[::-1])
+        founds = founds[::-1]
+        length = len(text) - 1
+        for index, found in enumerate(founds):
+            founds[index] = (found[0], found[1], length-found[3], length-found[2])
+        return founds
+
+    def parse_longest(self, text: str):
+        """
+        此处使用逆向最长匹配
+        :param text:
+        :return:
+        """
+        return self.backward_parse_longest(text)
+
+
 if __name__ == '__main__':
-    trie = Trie()
+    trie = Trie({})
     # 增
     trie['自然'] = 'nature'
     trie['自然人'] = 'human'
@@ -158,7 +207,7 @@ if __name__ == '__main__':
 
     # 分词速度评测
     dic = load_dictionary()
-    trie = Trie()
+    trie = Trie({})
     trie.update({key: key for key in dic})
     text = '江西鄱阳湖干枯，中国最大淡水湖变成大草原'
     print('全切分:', trie.parse_text(text))
