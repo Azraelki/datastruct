@@ -21,7 +21,7 @@ def convert():
         result = []
         for index, row in df.iterrows():
             result.append([row[0], word_dict[key], 1])
-        pd.DataFrame(result).to_csv(key + '.txt', index=None, header=None, encoding='utf-8', sep='\t')
+        pd.DataFrame(result).to_csv(key + '.csv', index=None, header=None, encoding='utf-8')
 
 
 if __name__ == '__main__':
